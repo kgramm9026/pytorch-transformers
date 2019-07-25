@@ -81,9 +81,8 @@ class BertTokenizer(object):
     """Runs end-to-end tokenization: punctuation splitting + wordpiece"""
 
     def __init__(self, vocab_file, do_lower_case=True, max_len=None, do_basic_tokenize=True,
-                 never_split=("[UNK]", "[SEP]", "[PAD]", "[CLS]", "[MASK]")):
+                 never_split=("[UNK]", "[SEP]", "[PAD]", "[CLS]", "[MASK]", "[DEF]", "[INDEF]")):
         """Constructs a BertTokenizer.
-
         Args:
           vocab_file: Path to a one-wordpiece-per-line vocabulary file
           do_lower_case: Whether to lower case the input
@@ -104,6 +103,7 @@ class BertTokenizer(object):
         self.ids_to_tokens = collections.OrderedDict(
             [(ids, tok) for tok, ids in self.vocab.items()])
         self.do_basic_tokenize = do_basic_tokenize
+        self.never_split = never_split
         if do_basic_tokenize:
           self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case,
                                                 never_split=never_split)
@@ -114,8 +114,11 @@ class BertTokenizer(object):
         split_tokens = []
         if self.do_basic_tokenize:
             for token in self.basic_tokenizer.tokenize(text):
-                for sub_token in self.wordpiece_tokenizer.tokenize(token):
-                    split_tokens.append(sub_token)
+                if token not in self.never_split:
+                    for sub_token in self.wordpiece_tokenizer.tokenize(token):
+                        split_tokens.append(sub_token)
+                else:
+                    split_tokens.append(token)
         else:
             split_tokens = self.wordpiece_tokenizer.tokenize(text)
         return split_tokens
@@ -216,7 +219,6 @@ class BasicTokenizer(object):
                  do_lower_case=True,
                  never_split=("[UNK]", "[SEP]", "[PAD]", "[CLS]", "[MASK]")):
         """Constructs a BasicTokenizer.
-
         Args:
           do_lower_case: Whether to lower case the input.
         """
@@ -336,18 +338,14 @@ class WordpieceTokenizer(object):
 
     def tokenize(self, text):
         """Tokenizes a piece of text into its word pieces.
-
         This uses a greedy longest-match-first algorithm to perform tokenization
         using the given vocabulary.
-
         For example:
           input = "unaffable"
           output = ["un", "##aff", "##able"]
-
         Args:
           text: A single token or whitespace separated tokens. This should have
             already been passed through `BasicTokenizer`.
-
         Returns:
           A list of wordpiece tokens.
         """
